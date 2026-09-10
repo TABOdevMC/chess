@@ -1,0 +1,47 @@
+name: Fix bot Elo strength
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch bot strength
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old_depth = "function depthForLevel(){if(botLevel==='custom')return Math.min(22,4+Math.round(botElo/250));return {beginner:5,intermediate:9,advanced:14,expert:20}[botLevel]||9}"
+          new_depth = "function skillForElo(elo){return Math.max(0,Math.min(20,Math.round((elo-100)/155)))}function depthForLevel(){if(botLevel==='custom')return Math.max(4,Math.min(18,5+Math.round(botElo/400)));return {beginner:5,intermediate:9,advanced:13,expert:17}[botLevel]||9}"
+          if old_depth in s:
+              s = s.replace(old_depth, new_depth)
+          old_go = "stockfish.postMessage('position fen '+bot.fen());stockfish.postMessage('go depth '+depthForLevel())"
+          new_go = "if(botLevel==='custom'){stockfish.postMessage('setoption name Skill Level value '+skillForElo(botElo));stockfish.postMessage('setoption name UCI_LimitStrength value true');stockfish.postMessage('setoption name UCI_Elo value '+Math.max(1320,Math.min(3190,botElo)))}else{stockfish.postMessage('setoption name Skill Level value '+({beginner:2,intermediate:8,advanced:14,expert:20}[botLevel]||8));stockfish.postMessage('setoption name UCI_LimitStrength value false')}stockfish.postMessage('position fen '+bot.fen());stockfish.postMessage('go depth '+depthForLevel())"
+          if old_go in s:
+              s = s.replace(old_go, new_go)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "fix: make bot Elo affect Stockfish strength"
+          git push
