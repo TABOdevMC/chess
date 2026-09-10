@@ -1,0 +1,73 @@
+name: Add PGN export
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  add-export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add PGN export
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          changed = False
+
+          bot_old = '<button class="btn" id="botUndo">↩ Annuler</button><button class="btn" id="botNew">Nouvelle partie</button>'
+          bot_new = '<button class="btn" id="botUndo">↩ Annuler</button><button class="btn" id="botNew">Nouvelle partie</button><button class="btn" id="botExport">⬇ Exporter PGN</button>'
+          if bot_old in s and 'id="botExport"' not in s:
+              s = s.replace(bot_old, bot_new, 1)
+              changed = True
+
+          local_old = '<button class="btn" id="localUndo">↩ Annuler</button><button class="btn" id="localNew">Nouvelle partie</button>'
+          local_new = '<button class="btn" id="localUndo">↩ Annuler</button><button class="btn" id="localNew">Nouvelle partie</button><button class="btn" id="localExport">⬇ Exporter PGN</button>'
+          if local_old in s and 'id="localExport"' not in s:
+              s = s.replace(local_old, local_new, 1)
+              changed = True
+
+          if 'function exportPGN(' not in s:
+              code = r'''function exportPGN(g,filename,white,black){if(!g.history().length){alert('Aucun coup à exporter.');return}const pgn=g.pgn({max_width:0,newline_char:'\n'});const headers='[Event "Partie Chess"]\n[Site "GitHub Pages"]\n[White "'+(white||'Blancs')+'"]\n[Black "'+(black||'Noirs')+'"]\n\n';const blob=new Blob([headers+pgn],{type:'application/x-chess-pgn'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}'''
+              marker = "function skillForElo(elo)"
+              if marker in s:
+                  s = s.replace(marker, code + marker, 1)
+                  changed = True
+
+          if '$(\'botExport\').onclick' not in s and '$("botExport").onclick' not in s:
+              marker = "$('botStart').onclick=()=>{newBot();}"
+              if marker in s:
+                  s = s.replace(marker, marker+";$('botExport').onclick=()=>exportPGN(bot,'partie-bot.pgn',$('botColor').value==='w'?'Vous':'Stockfish',$('botColor').value==='b'?'Vous':'Stockfish')", 1)
+                  changed = True
+
+          if '$(\'localExport\').onclick' not in s and '$("localExport").onclick' not in s:
+              marker = "$('localNew').onclick=()=>{local=new Chess();selected.local=null;redraw('local')}"
+              if marker in s:
+                  s = s.replace(marker, marker+";$('localExport').onclick=()=>exportPGN(local,'partie-2-joueurs.pgn','Blancs','Noirs')", 1)
+                  changed = True
+
+          p.write_text(s, encoding='utf-8')
+          print('changed:', changed)
+          PY
+
+      - name: Commit export
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "feat: export games as PGN"
+          git push
