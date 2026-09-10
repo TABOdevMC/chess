@@ -1,0 +1,40 @@
+name: Vendor Stockfish
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: ${{ !contains(github.event.head_commit.message, 'vendor: stockfish') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download local Stockfish
+        run: |
+          if [ -f stockfish.js ]; then
+            echo "stockfish.js already exists"
+            exit 0
+          fi
+          curl -L --fail --retry 3 \
+            "https://unpkg.com/stockfish.js@10.0.2/stockfish.js" \
+            -o stockfish.js
+
+      - name: Commit engine
+        run: |
+          if git diff --quiet; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stockfish.js
+          git commit -m "vendor: stockfish"
+          git push
