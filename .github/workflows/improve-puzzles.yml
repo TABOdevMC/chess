@@ -30,9 +30,9 @@ jobs:
           {fen:'7k/6p1/6K1/7Q/8/8/8/8 w - - 0 1',move:'h5h7',name:'Mat en 1',type:'Mat',hint:'Cherchez un échec qui ne laisse aucune case de fuite.'},
           {fen:'6k1/5ppp/8/8/8/8/4R3/6K1 w - - 0 1',move:'e2e8',name:'Mat du couloir',type:'Mat',hint:'Le roi noir est enfermé par ses propres pions.'},
           {fen:'3q3k/8/8/4N3/8/8/8/6K1 w - - 0 1',move:'e5f7',name:'Fourchette',type:'Fourchette',hint:'Le cavalier peut attaquer deux pièces importantes en même temps.'},
-          {fen:'4k3/8/8/8/2B5/8/4R3/4K3 w - - 0 1',move:'c4f7',name:'Attaque double',type:'Attaque double',hint:'Cherchez un coup qui crée une menace sur le roi et une autre pièce.'},
+          {fen:'4k3/5p2/8/8/2B5/8/4R3/4K3 w - - 0 1',move:'c4f7',name:'Échec et gain',type:'Échec + gain de pion',hint:'Cherchez un échec qui gagne aussi du matériel.'},
           {fen:'7k/4P3/6K1/8/8/8/8/8 w - - 0 1',move:'e7e8q',name:'Promotion',type:'Promotion',hint:'Le pion est à une case de la dernière rangée.'},
-          {fen:'6k1/5ppp/8/8/8/2B5/5PPP/6K1 w - - 0 1',move:'c3f6',name:'Gain de matériel',type:'Capture tactique',hint:'Regardez les pièces qui peuvent être prises sans perdre votre pièce.'}
+          {fen:'6k1/5ppp/8/8/8/2B5/5PPP/6K1 w - - 0 1',move:'c3f6',name:'Capture avec échec',type:'Capture tactique',hint:'Une pièce adverse importante peut être capturée avec tempo.'}
           ];
           let puzzleSolution='',currentPuzzle=null;
           function newPuzzle(){
