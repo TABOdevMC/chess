@@ -1,0 +1,82 @@
+name: Improve puzzles
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  improve:
+    if: ${{ !contains(github.event.head_commit.message, 'improve: puzzles') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace puzzle set
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacement = r'''const puzzles=[
+          {fen:'7k/6p1/6K1/7Q/8/8/8/8 w - - 0 1',move:'h5h7',name:'Mat en 1',type:'Mat',hint:'Cherchez un échec qui ne laisse aucune case de fuite.'},
+          {fen:'6k1/5ppp/8/8/8/8/4R3/6K1 w - - 0 1',move:'e2e8',name:'Mat du couloir',type:'Mat',hint:'Le roi noir est enfermé par ses propres pions.'},
+          {fen:'3q3k/8/8/4N3/8/8/8/6K1 w - - 0 1',move:'e5f7',name:'Fourchette',type:'Fourchette',hint:'Le cavalier peut attaquer deux pièces importantes en même temps.'},
+          {fen:'4k3/8/8/8/2B5/8/4R3/4K3 w - - 0 1',move:'c4f7',name:'Attaque double',type:'Attaque double',hint:'Cherchez un coup qui crée une menace sur le roi et une autre pièce.'},
+          {fen:'7k/4P3/6K1/8/8/8/8/8 w - - 0 1',move:'e7e8q',name:'Promotion',type:'Promotion',hint:'Le pion est à une case de la dernière rangée.'},
+          {fen:'6k1/5ppp/8/8/8/2B5/5PPP/6K1 w - - 0 1',move:'c3f6',name:'Gain de matériel',type:'Capture tactique',hint:'Regardez les pièces qui peuvent être prises sans perdre votre pièce.'}
+          ];
+          let puzzleSolution='',currentPuzzle=null;
+          function newPuzzle(){
+            currentPuzzle=puzzles[Math.floor(Math.random()*puzzles.length)];
+            puzzleGame=new Chess(currentPuzzle.fen);
+            puzzleSolution=currentPuzzle.move;
+            selected.puzzle=null;
+            $('puzzleResult').innerHTML='<b>'+currentPuzzle.type+'</b> — '+currentPuzzle.hint;
+            $('puzzleStatus').textContent='Trouvez le meilleur coup';
+            const label=document.querySelector('#puzzle .muted');
+            if(label)label.textContent=currentPuzzle.name;
+            redraw('puzzle');
+          }
+          function checkPuzzle(m){
+            if(m.from+m.to+(m.promotion||'')===puzzleSolution){
+              $('puzzleResult').innerHTML='<span class="good">✓ Excellent !</span> '+currentPuzzle.name;
+              $('puzzleStatus').textContent='Bravo !';
+              return;
+            }
+            $('puzzleResult').innerHTML='<span class="bad">✗ Mauvais coup.</span> '+currentPuzzle.hint;
+            puzzleGame.undo();
+            selected.puzzle=null;
+            redraw('puzzle');
+          }
+          function showSolution(){
+            if(!currentPuzzle)return;
+            $('puzzleResult').innerHTML='<b>Solution :</b> '+puzzleSolution.slice(0,2)+' → '+puzzleSolution.slice(2,4)+(puzzleSolution[4]?' = '+puzzleSolution[4].toUpperCase():'');
+          }'''
+
+          pattern = r"const puzzles=\[.*?function setLevel\(level,label\)"
+          if not re.search(pattern, s, flags=re.S):
+              raise SystemExit('Puzzle block not found')
+          s = re.sub(pattern, replacement + '\nfunction setLevel(level,label)', s, count=1, flags=re.S)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit puzzle improvements
+        run: |
+          if git diff --quiet; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "improve: puzzles"
+          git push
