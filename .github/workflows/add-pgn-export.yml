@@ -1,4 +1,4 @@
-name: Add PGN export
+name: Fix PGN export
 
 on:
   push:
@@ -9,65 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  add-export:
+  fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Add PGN export
+      - name: Patch export
         run: |
           python - <<'PY'
           from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
-          changed = False
-
-          bot_old = '<button class="btn" id="botUndo">↩ Annuler</button><button class="btn" id="botNew">Nouvelle partie</button>'
-          bot_new = '<button class="btn" id="botUndo">↩ Annuler</button><button class="btn" id="botNew">Nouvelle partie</button><button class="btn" id="botExport">⬇ Exporter PGN</button>'
-          if bot_old in s and 'id="botExport"' not in s:
-              s = s.replace(bot_old, bot_new, 1)
-              changed = True
-
-          local_old = '<button class="btn" id="localUndo">↩ Annuler</button><button class="btn" id="localNew">Nouvelle partie</button>'
-          local_new = '<button class="btn" id="localUndo">↩ Annuler</button><button class="btn" id="localNew">Nouvelle partie</button><button class="btn" id="localExport">⬇ Exporter PGN</button>'
-          if local_old in s and 'id="localExport"' not in s:
-              s = s.replace(local_old, local_new, 1)
-              changed = True
-
-          if 'function exportPGN(' not in s:
-              code = r'''function exportPGN(g,filename,white,black){if(!g.history().length){alert('Aucun coup à exporter.');return}const pgn=g.pgn({max_width:0,newline_char:'\n'});const headers='[Event "Partie Chess"]\n[Site "GitHub Pages"]\n[White "'+(white||'Blancs')+'"]\n[Black "'+(black||'Noirs')+'"]\n\n';const blob=new Blob([headers+pgn],{type:'application/x-chess-pgn'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}'''
-              marker = "function skillForElo(elo)"
-              if marker in s:
-                  s = s.replace(marker, code + marker, 1)
-                  changed = True
-
-          if '$(\'botExport\').onclick' not in s and '$("botExport").onclick' not in s:
-              marker = "$('botStart').onclick=()=>{newBot();}"
-              if marker in s:
-                  s = s.replace(marker, marker+";$('botExport').onclick=()=>exportPGN(bot,'partie-bot.pgn',$('botColor').value==='w'?'Vous':'Stockfish',$('botColor').value==='b'?'Vous':'Stockfish')", 1)
-                  changed = True
-
-          if '$(\'localExport\').onclick' not in s and '$("localExport").onclick' not in s:
-              marker = "$('localNew').onclick=()=>{local=new Chess();selected.local=null;redraw('local')}"
-              if marker in s:
-                  s = s.replace(marker, marker+";$('localExport').onclick=()=>exportPGN(local,'partie-2-joueurs.pgn','Blancs','Noirs')", 1)
-                  changed = True
-
-          p.write_text(s, encoding='utf-8')
-          print('changed:', changed)
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'id="pgn-export-fix"' not in s:
+              code=r'''<script id="pgn-export-fix">(function(){function pgnExport(g,name,white,black){if(!g||!g.history().length){alert('Aucun coup à exporter.');return}var result='*';if(g.in_checkmate())result=g.turn()==='w'?'0-1':'1-0';else if(g.in_draw()||g.in_stalemate()||g.insufficient_material())result='1/2-1/2';var text='[Event "Partie Chess"]\n[Site "Chess"]\n[White "'+(white||'Blancs')+'"]\n[Black "'+(black||'Noirs')+'"]\n[Result "'+result+'"]\n\n'+g.pgn({max_width:0,newline_char:'\n'});if(!text.trim().endsWith(result))text+=' '+result;var blob=new Blob([text],{type:'application/x-chess-pgn;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000)}function add(id,game,name,white,black){if(document.getElementById(id))return;var b=document.createElement('button');b.className='btn';b.id=id;b.type='button';b.textContent='⬇ Exporter PGN';b.addEventListener('click',function(){pgnExport(game,name,white,black)});var c=b.parentElement;c.appendChild(b)}function init(){add('botExport','bot','partie-bot.pgn',document.getElementById('botColor')&&document.getElementById('botColor').value==='w'?'Vous':'Stockfish',document.getElementById('botColor')&&document.getElementById('botColor').value==='b'?'Vous':'Stockfish');add('localExport','local','partie-2-joueurs.pgn','Blancs','Noirs');var be=document.getElementById('botExport');if(be)be.onclick=function(){pgnExport(window.bot,'partie-bot.pgn',document.getElementById('botColor').value==='w'?'Vous':'Stockfish',document.getElementById('botColor').value==='b'?'Vous':'Stockfish')};var le=document.getElementById('localExport');if(le)le.onclick=function(){pgnExport(window.local,'partie-2-joueurs.pgn','Blancs','Noirs')}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init()})();</script>'''
+              s=s.replace('</body>',code+'</body>')
+              p.write_text(s,encoding='utf-8')
           PY
-
-      - name: Commit export
+      - name: Commit
         run: |
-          if git diff --quiet -- index.html; then
-            echo "No change needed"
-            exit 0
-          fi
+          if git diff --quiet -- index.html; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "feat: export games as PGN"
+          git commit -m "fix: reliable PGN download"
           git push
