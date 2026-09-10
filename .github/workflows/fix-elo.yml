@@ -1,0 +1,64 @@
+name: Fix Elo slider
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add Elo slider handler
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '/* elo-slider-fix */'
+          if marker in s:
+              print('Elo fix already present')
+          else:
+              fix = """/* elo-slider-fix */
+          const eloSlider = $('elo');
+          const eloDisplay = $('eloValue');
+          if (eloSlider && eloDisplay) {
+            eloDisplay.textContent = eloSlider.value;
+            eloSlider.addEventListener('input', () => {
+              botElo = Number(eloSlider.value);
+              eloDisplay.textContent = botElo;
+              botLevel = 'custom';
+              $('levelValue').textContent = 'Élo personnalisé';
+              document.querySelectorAll('.level-choice').forEach(b => {
+                b.classList.remove('active');
+                const c = b.querySelector('.check');
+                if (c) c.textContent = '';
+              });
+            });
+          }
+          """
+              if '</script>' not in s:
+                  raise SystemExit('No script closing tag found')
+              s = s.replace('</script>', fix + '</script>', 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "fix: update Elo slider value"
+          git push
