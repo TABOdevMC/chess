@@ -1,0 +1,28 @@
+name: Restore PGN export
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore PGN export
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'id="pgn-export-fix"' in s:
+              raise SystemExit(0)
+          inject=r'''<style id="pgn-export-fix">.pgn-export-btn{display:inline-flex;align-items:center;gap:7px}.pgn-export-btn svg{width:17px;height:17px}</style><script id="pgn-export-fix">(function(){function setup(){if(document.getElementById('pgnExport'))return;var btn=document.createElement('button');btn.id='pgnExport';btn.className='btn pgn-export-btn';btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/><path d="M5 21v-3m14 3v-3"/></svg><span>Exporter PGN</span>';var controls=document.querySelector('#bot .controls');if(controls)controls.appendChild(btn);else return;btn.addEventListener('click',function(){try{var g=typeof bot!=='undefined'?bot:null;if(!g||!g.history().length){alert('Aucune partie à exporter.');return}var pgn=g.pgn({newline_char:'\\n'});var blob=new Blob([pgn],{type:'application/x-chess-pgn'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='partie-chess.pgn';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)}catch(e){console.error(e);alert('Impossible d’exporter la partie.')}})}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup()})();</script>'''
+          s=s.replace('</body>',inject+'</body>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix: restore PGN export button' || exit 0
+          git push
