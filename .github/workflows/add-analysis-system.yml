@@ -1,0 +1,50 @@
+name: Add Chess.com style analysis
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add analysis system
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          if 'id="chess-analysis-system"' in s:
+              raise SystemExit(0)
+          inject=r'''<style id="analysis-ui">.analysis-review{margin-top:14px;background:#0a1220;border:1px solid #26334b;border-radius:14px;overflow:hidden}.analysis-review-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #26334b}.analysis-review-title{font-weight:800}.analysis-badge{font-weight:800;padding:5px 9px;border-radius:999px;font-size:12px}.analysis-badge.blunder{background:#f43f5e22;color:#fb7185}.analysis-badge.mistake{background:#fb923c22;color:#fdba74}.analysis-badge.inaccuracy{background:#facc1522;color:#fde047}.analysis-badge.good{background:#22c55e22;color:#86efac}.analysis-badge.verygood{background:#14b8a622;color:#5eead4}.analysis-badge.best,.analysis-badge.excellent{background:#22c55e22;color:#4ade80}.analysis-badge.brilliant{background:#06b6d422;color:#67e8f9}.analysis-badge.forced{background:#8b5cf622;color:#c4b5fd}.analysis-review-body{padding:12px 14px;color:#91a0b9}.review-row{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #202d43;cursor:pointer}.review-row:last-child{border-bottom:0}.review-move{width:42px;font-weight:700;color:#fff}.review-loss{margin-left:auto;color:#91a0b9;font-size:12px}</style><script id="chess-analysis-system">(function(){
+  function initAnalysis(){
+    var area=document.getElementById('analysis'); if(!area||document.getElementById('analysisReview'))return;
+    var side=area.querySelector('aside'); if(!side)return;
+    var card=document.createElement('div'); card.className='card'; card.style.marginTop='14px';
+    card.innerHTML='<div class="section-title"><h3>Analyse</h3><span id="analysisProgress" class="muted">En attente</span></div><div id="analysisReview" class="analysis-review"><div class="analysis-review-head"><span class="analysis-review-title">Évaluation des coups</span><span class="muted">Stockfish</span></div><div id="analysisReviewBody"><div class="analysis-review-body">Chargez une partie pour lancer l’analyse.</div></div></div>';
+    side.appendChild(card);
+  }
+  function classify(loss,forced){if(forced)return['Forcé','forced'];if(loss>=300)return['Gaffe','blunder'];if(loss>=150)return['Erreur','mistake'];if(loss>=60)return['Imprécision','inaccuracy'];if(loss<=-80)return['Brillant (!!)','brilliant'];if(loss<=-35)return['Excellent (!)','excellent'];if(loss<=-15)return['Très bon','verygood'];if(loss<=5)return['Meilleur','best'];return['Bon','good']}
+  function evalEngine(fen,cb){if(!stockfish){cb(null);return}var done=false,t=setTimeout(function(){if(!done){done=true;cb(null)}},5000);var old=stockfish.onmessage;stockfish.onmessage=function(e){var s=String(e.data);if(s.indexOf('info depth')===0&&s.indexOf(' score ')>=0){var m=s.match(/ score (cp|mate) (-?\d+)/);if(m){var v=m[1]==='mate'?(+m[2]>0?10000:-10000):+m[2];if(!done){clearTimeout(t);done=true;stockfish.onmessage=old;cb(v)}}}};stockfish.postMessage('position fen '+fen);stockfish.postMessage('go depth 12')}
+  window.runChessAnalysis=function(){
+    if(!window.analysisList||!window.analysisList.length){return}
+    var body=document.getElementById('analysisReviewBody'),prog=document.getElementById('analysisProgress'); if(!body)return;
+    body.innerHTML='<div class="analysis-review-body">Analyse en cours…</div>'; var g=new Chess(); var results=[]; var i=0;
+    function next(){if(i>=analysisList.length){render();prog.textContent='Terminé';return}var u=analysisList[i];var before=g.fen(),sideToMove=g.turn();var legal=g.moves();var forced=legal.length===1;evalEngine(before,function(ev){var san=u.san||u;var beforeEval=ev==null?0:ev;try{g.move(u.move||u)}catch(e){i++;next();return}var after=g.fen();evalEngine(after,function(afterRaw){var afterEval=afterRaw==null?0:-afterRaw;var loss=Math.max(0,beforeEval-afterEval);var improvement=afterEval-beforeEval;var c=classify(loss,forced);results.push({san:san,label:c[0],cls:c[1],loss:loss,ply:i+1});i++;prog.textContent=i+'/'+analysisList.length;next()})})}
+    function render(){body.innerHTML='';results.forEach(function(r){var row=document.createElement('div');row.className='review-row';row.innerHTML='<span class="review-move">'+r.san+'</span><span class="analysis-badge '+r.cls+'">'+r.label+'</span><span class="review-loss">'+(r.loss>0?'-'+Math.round(r.loss)+' cp':'')+'</span>';body.appendChild(row)})}
+    next();
+  };
+  var oldLoad=window.onload;document.addEventListener('DOMContentLoaded',function(){initAnalysis();var b=document.getElementById('loadPgn');if(b){b.addEventListener('click',function(){setTimeout(function(){if(typeof analysisList!=='undefined'&&analysisList.length){window.runChessAnalysis()}},200)})}});
+})();</script>'''
+          s=s.replace('</head>',inject+'</head>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'feat: add chess.com style analysis' || exit 0
+          git push
