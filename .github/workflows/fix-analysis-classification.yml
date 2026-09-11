@@ -1,0 +1,39 @@
+name: Fix analysis classifications
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fix analysis engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="""function evalEngine(fen,cb){if(!stockfish){cb(null);return}var done=false,t=setTimeout(function(){if(!done){done=true;cb(null)}},5000);var old=stockfish.onmessage;stockfish.onmessage=function(e){var s=String(e.data);if(s.indexOf('info depth')===0&&s.indexOf(' score ')>=0){var m=s.match(/ score (cp|mate) (-?\\d+)/);if(m){var v=m[1]==='mate'?(+m[2]>0?10000:-10000):+m[2];if(!done){clearTimeout(t);done=true;stockfish.onmessage=old;cb(v)}}}};stockfish.postMessage('position fen '+fen);stockfish.postMessage('go depth 12')}"""
+          new="""function evalEngine(fen,cb){if(!stockfish){cb(null);return}var done=false,best=null,t=setTimeout(function(){if(!done){done=true;stockfish.onmessage=old;cb(best)}},8000);var old=stockfish.onmessage;stockfish.onmessage=function(e){var s=String(e.data);var m=s.match(/ score (cp|mate) (-?\\d+)/);if(m){best=m[1]==='mate'?(+m[2]>0?10000:-10000):+m[2]}if(s.indexOf('bestmove ')===0&&!done){clearTimeout(t);done=true;stockfish.onmessage=old;cb(best)}};stockfish.postMessage('position fen '+fen);stockfish.postMessage('go depth 14')}"""
+          if old in s:
+              s=s.replace(old,new,1)
+          s=s.replace("if(!window.analysisList||!window.analysisList.length){return}","if(typeof analysisList==='undefined'||!analysisList.length){return}")
+          s=s.replace("var loss=Math.max(0,beforeEval-afterEval);var improvement=afterEval-beforeEval;", "var loss=beforeEval-afterEval;")
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          if git diff --quiet -- index.html; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix: classify chess moves with Stockfish scores'
+          git push
