@@ -1,0 +1,36 @@
+name: Fix puzzle capture
+
+on:
+  push:
+    branches: [main]
+    paths: [index.html]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: !contains(github.event.head_commit.message, 'fix: correct capture puzzle position')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix invalid capture puzzle
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          old = "fen:'6k1/5ppp/8/8/8/2B5/5PPP/6K1 w - - 0 1',move:'c3f6',name:'Capture avec échec'"
+          new = "fen:'8/6k1/5p2/8/8/2B5/5PPP/6K1 w - - 0 1',move:'c3f6',name:'Capture avec échec'"
+          if old in s:
+              s = s.replace(old, new)
+              p.write_text(s)
+          PY
+      - name: Commit correction
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix: correct capture puzzle position'
+          git push
