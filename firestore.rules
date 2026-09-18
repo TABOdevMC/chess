@@ -7,18 +7,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    match /admins/{userId} {
-      allow read: if signedIn() && request.auth.uid == userId;
-      allow create, update, delete: if false;
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true;
     }
 
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow update: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.admin == false;
+      allow update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.admin == resource.data.admin;
       allow delete: if false;
     }
 
