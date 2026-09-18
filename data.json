@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "users": [],
+  "games": [],
+  "settings": {
+    "initialElo": 1000,
+    "maxLocalPlayers": 3
+  }
+}
