@@ -30,3 +30,11 @@ window.CHESS_FIREBASE_CONFIG = {
   `;
   document.head.appendChild(style);
 })();
+
+// Load the expanded tactical-puzzle trainer after the page is ready.
+(function () {
+  var s = document.createElement('script');
+  s.src = './puzzles-extra.js';
+  s.defer = true;
+  document.head.appendChild(s);
+})();
