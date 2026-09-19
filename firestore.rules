@@ -11,7 +11,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      // Authenticated players need to read users for the Elo leaderboard.
+      allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == userId
         && request.resource.data.admin == false;
       allow update: if signedIn() && request.auth.uid == userId
@@ -28,6 +29,13 @@ service cloud.firestore {
         || request.auth.uid == resource.data.white
         || request.auth.uid == resource.data.black);
       allow delete: if false;
+    }
+
+    match /matchmaking/{entryId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
   }
 }
