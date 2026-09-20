@@ -1,0 +1,14 @@
+/* Elo leaderboard polish */
+#leaderboardList{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+#leaderboardList .move{display:grid;grid-template-columns:56px minmax(160px,1fr) auto auto;align-items:center;gap:16px;padding:15px 18px;border:1px solid #33445f;border-radius:12px;background:linear-gradient(135deg,#16243a,#101b2d);box-shadow:0 5px 16px rgba(0,0,0,.18);border-bottom:1px solid #33445f}
+#leaderboardList .move>span:first-child{font-size:14px;font-weight:800;color:#8fa4c1}
+#leaderboardList .move>span:nth-child(2){font-size:16px;font-weight:800;color:#f4f7fb}
+#leaderboardList .move>span:nth-child(3){font-size:15px;font-weight:900;color:#a3d160;white-space:nowrap}
+#leaderboardList .move>span:nth-child(4){font-size:13px;color:#8fa4c1;white-space:nowrap}
+#leaderboardList .move:first-child{border-color:#9b7b32;background:linear-gradient(135deg,#252d3a,#172238);box-shadow:0 7px 20px rgba(0,0,0,.24)}
+#leaderboardList .move:first-child>span:first-child{color:#f1c75b}
+#leaderboardList .move:first-child>span:nth-child(2)::before{content:'♛ ';color:#f1c75b}
+#leaderboardList .move:nth-child(2)>span:first-child{color:#c6ced8}
+#leaderboardList .move:nth-child(3)>span:first-child{color:#c89062}
+.lb-empty{padding:24px;text-align:center;color:#8fa4c1;border:1px dashed #33445f;border-radius:12px}
+@media(max-width:700px){#leaderboardList .move{grid-template-columns:42px 1fr auto;gap:10px;padding:13px 12px}#leaderboardList .move>span:nth-child(4){grid-column:2/-1}#leaderboardList .move>span:nth-child(3){font-size:14px}}
